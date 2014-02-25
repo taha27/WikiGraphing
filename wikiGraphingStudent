@@ -1,0 +1,319 @@
+#include <iostream>
+#include <vector>
+#include <list>
+#include <map>
+#include <string>
+#include <fstream>
+#include <boost/algorithm/string.hpp>
+#include "graphSTL.h"
+
+using namespace std;
+
+void print(list<Edge>& lst){
+    int count = 0;
+    list<Edge>::iterator printList_it;
+    for( printList_it = lst.begin(); printList_it != lst.end(); ++printList_it){
+        count++;
+		cout << "Edge " << count << " -> " << printList_it->origin << " " << printList_it->destination << " " << printList_it->weight << endl;
+    }
+}
+
+/*
+string str1 = "New York";
+    string str2 = "New Jersey";
+    if((str1.compare(str2))<0){
+        cout<< str1 << " comes before "<<str2<<endl;
+
+    }else if ((str1.compare(str2))>0){
+        cout<< str2<< " comes before "<<str1<<endl;
+    }else cout<< str2<< " is the same as "<<str1<<endl;
+    return 0;
+}
+*/
+
+
+adjacencyList organizeList(list<Edge>& lst, int numberVertices){
+    list<Edge>::iterator lsttoAList_it; //iterator of type list<Edge>
+
+    adjacencyList adjList;
+    for (int a = 1; a<=numberVertices; ++a){ //looping to create as many entries in the adjacencyList object as there are vertices
+        list<Edge> currentList;
+        //cout<<"new \n";
+        //int index = 0;
+        for( lsttoAList_it = lst.begin(); lsttoAList_it != lst.end(); ++lsttoAList_it){ //iterating through "lst"
+            //index++;
+            if (lsttoAList_it->origin == a){ //since there are already two undirected copies of every edge due to createAllEdges, we need only look for a vertex in just one of the positions or else there the duplicated copies will be further dupicated
+                Edge currentEdge = {lsttoAList_it->origin, lsttoAList_it->destination, lsttoAList_it->weight}; //creating a temporary Edge object
+                currentList.push_back(currentEdge); //adding the temporary Edge object to the end of the temporary list<Edge> object
+            }
+        }
+        adjList.push_back(currentList); //adding the temporary list<Edge> to the adjacency list
+        //print(tmpLst);
+        //cout<<"\n";
+    }
+    return adjList;
+}
+
+void printOrganized(adjacencyList& lst, idToWikiMap page_ofID){
+    adjacencyList adjList(lst);
+    adjacencyList::iterator adjList_it;
+    list<Edge>::iterator lstToAdj_it;
+    int index1 = 0;
+    for(adjList_it = adjList.begin(); adjList_it != adjList.begin(); ++adjList_it){
+        cout<<"Page "<< page_ofID[index1+1].title <<" -> ";
+        index1++;
+        //cout<<"saal";
+        int index2 = 0;
+        for(lstToAdj_it = (*adjList_it).begin(); lstToAdj_it != (*adjList_it).end(); ++lstToAdj_it){
+            index2++;
+            if(lstToAdj_it->origin == index2){
+                cout<<(page_ofID[lstToAdj_it->destination]).title<<":"<<lstToAdj_it->weight<<" ";
+                //cout<<"baal";
+            }else{
+                cout<<(page_ofID[lstToAdj_it->origin]).title<<":"<<lstToAdj_it->weight<<" ";
+                //cout<<"maal";
+            }
+        }
+        cout<<"\n";
+    }
+}
+
+/*
+void printOrganized(adjacencyList& lst, idToWikiMap page_ofID){
+    int index1 = 0;
+
+    for(adjacencyList::iterator vlit = lst.begin(); vlit != lst.end() ; vlit++){
+
+        cout<<"Page "<< page_ofID[index1+1].title <<" -> ";
+        int index2 = 0;
+        for(list<Edge>::iterator lit = lst[index1].begin(); lit != lst[index1].end() ; lit++){
+            //WikiPage currentPage = lit;
+            index2++;
+            if(lit->origin == index2){
+                cout<<page_ofID[lit->destination].title <<":"<<lit->weight<<" ";
+            }else{
+                cout<<page_ofID[index2].title <<":"<<lit->weight<<" ";
+            }
+        }
+        index1++;
+        cout<<"\n";
+    }
+}
+*/
+
+idToWikiMap buildMap(list<WikiPage>& lst){
+    list<WikiPage>::iterator wikilist_it;
+    idToWikiMap builtmap;
+    for(wikilist_it = lst.begin(); wikilist_it!=lst.end(); ++wikilist_it){
+        WikiPage tmpPage;
+        tmpPage.ID = wikilist_it->ID;
+        tmpPage.title = wikilist_it->title;
+        tmpPage.html_location = wikilist_it->html_location;
+        tmpPage.txt_location = wikilist_it->txt_location;
+        builtmap[tmpPage.ID] = tmpPage;
+    }
+    return builtmap;
+}
+
+int countOccurences(ifstream& in_file, string string_to_count){
+    int stringCount=0;
+    string currentLine;
+    if(in_file.is_open()){
+        while (getline(in_file, currentLine)){
+            for(size_t occurance=0; occurance<currentLine.size(); occurance+=string_to_count.size()){
+                occurance = currentLine.find(string_to_count, occurance);
+                if(occurance==string::npos) break;
+                stringCount++;
+            }
+        }
+    }
+    else cout<<"Error Opening File";
+
+    //cout<<stringCount;
+    //in_file.close();
+
+    return stringCount;
+
+}
+
+Edge createEdge(WikiPage& page_1, WikiPage& page_2){
+    Edge newEdge;
+    ifstream p1_file(page_1.txt_location.c_str());
+    ifstream p2_file(page_2.txt_location.c_str());
+    int AinB = countOccurences(p2_file, page_1.title);
+    int BinA = countOccurences(p1_file, page_2.title);
+    p1_file.close();
+    p2_file.close();
+    newEdge.weight = (AinB + BinA);
+    /*if (newEdge.weight == 0){
+        cout<<"Pages aren't related at all";
+        newEdge.origin = 0;
+        newEdge.destination = 0;
+        newEdge.weight = 0;
+        return newEdge;
+    }*/
+    newEdge.origin = page_1.ID;
+    newEdge.destination = page_2.ID;
+    return newEdge;
+}
+
+list<Edge> createAllEdges(list<WikiPage>& pages){
+
+    list<Edge> allWeightedEdges;
+    list<WikiPage>::iterator page1_it;
+    list<WikiPage>::iterator page2_it;
+    //int pairWeight = 0;
+    WikiPage p1, p2;
+    for( page1_it = pages.begin(); page1_it != pages.end(); ++page1_it){
+        ifstream p1_file((page1_it->txt_location).c_str());
+        for( page2_it = pages.begin()  ; page2_it != pages.end(); ++page2_it){
+            ifstream p2_file((page2_it->txt_location).c_str());
+            if(page1_it->ID != page2_it->ID){
+                Edge currentEdge = createEdge(*page1_it, *page2_it);
+                //pairWeight = (countOccurences(p1_file, p2.title) + countOccurences(p2_file, p1.title));
+                if(currentEdge.weight>0){ //to make sure that en edge that has zero weight isn't included in allWeightedEdges list
+                    allWeightedEdges.push_back(currentEdge); //
+                }
+            }
+        }
+    }
+
+    return allWeightedEdges;
+}
+
+void saveGraphToFile(adjacencyList& graph_to_save, ofstream& out_file){
+    adjacencyList::iterator graph_it;
+    list<Edge>::iterator graphList_it;
+    for(graph_it = graph_to_save.begin(); graph_it != graph_to_save.end(); ++graph_it){ //iterates through the graph_to_save vector
+        for(graphList_it = (*graph_it).begin(); graphList_it != (*graph_it).end(); ++graphList_it){ //iterates through every list of Edges in the graph_to_save vector
+            if(graphList_it->origin < graphList_it->destination){ //conditional statement to ignore duplicate(undirected) edges
+                out_file<<graphList_it->origin<<" "<<graphList_it->destination<<" "<<graphList_it->weight<<"\n"; //saves an edge in each line of the file in the specified format, i.e. three integers(first vertex, second vertex and weight respectively) seperated by whitespaces
+            }
+        }
+    }
+}
+
+list<Edge> readGraphFromFile(ifstream& in_file){
+    string line;
+    list<Edge> graphFile;
+    vector<string> lineValues;
+    while (getline(in_file, line)) { //loops till a line exists in the file
+        boost::split(lineValues, line, boost::algorithm::is_any_of(" ")); //uses whitespace as a delimiter to split the line and store all the seperated characters in a vector<string> called lineValues
+        Edge currentEdge = {atoi(lineValues[0].c_str()), atoi(lineValues[1].c_str()), atoi(lineValues[2].c_str())}; //converts all the elements in lineValues to integers and stores them as an Edge with the assumption that a file line contains an origin, destination and weight in that order
+        graphFile.push_back(currentEdge); //adds currentEdge to the end of a list of Edges
+    }
+    return graphFile;
+}
+
+WikiPage* wikiPageInit(int id, string name, string html, string txt) {
+    WikiPage* tmp_page = new WikiPage;
+    tmp_page->ID = id;
+    tmp_page->title = name;
+    tmp_page->html_location = html;
+    tmp_page->txt_location = txt;
+    return tmp_page;
+}
+
+
+int main()
+{
+
+    cout  << "Creating list of articles" << endl;
+    list<WikiPage> all_pages;
+
+    all_pages.push_back(*wikiPageInit(1, "New York",
+				   "wiki/wp/n/New_York_City.htm",
+				   "wiki/text/New_York_City.txt"));
+    all_pages.push_back(*wikiPageInit(2, "Chicago",
+				   "wiki/wp/c/Chicago.htm",
+				   "wiki/text/Chicago.txt"));
+    all_pages.push_back(*wikiPageInit(3, "Montreal",
+				   "wiki/wp/m/Montreal.htm",
+				   "wiki/text/Montreal.txt"));
+    all_pages.push_back(*wikiPageInit(4, "Toronto",
+				   "wiki/wp/t/Toronto.htm",
+				   "wiki/text/Toronto.txt"));
+    all_pages.push_back(*wikiPageInit(5, "Miami",
+				   "wiki/wp/m/Miami%2C_Florida.htm",
+				   "wiki/text/Miami%2C_Florida.txt"));
+
+
+    list<Edge> edges = createAllEdges(all_pages);
+    cout << "Here is the list of edges created:" << endl;
+    print(edges);
+
+
+    adjacencyList graphAL = organizeList(edges, 5);
+    idToWikiMap page_ofID = buildMap(all_pages);
+    cout << "Here is the graph associated with the list of edges:" << endl;
+    printOrganized(graphAL, page_ofID);
+
+
+
+    for(map <int, WikiPage>::iterator printmap_it = page_ofID.begin(); printmap_it != page_ofID.end(); printmap_it++) {
+        WikiPage printEachPage = printmap_it->second;
+
+        cout << printmap_it->first << " -> " << printEachPage.title << " " << printEachPage.html_location << endl;
+    }
+
+    cout << "Testing the file input and output:" << endl;
+    ofstream ffo; ffo.open("out_graph.txt");
+    if(ffo.fail()) { cout << "File could not be opened" << endl; return 1;}
+    saveGraphToFile(graphAL, ffo);
+    ffo.close();
+    ifstream ffi; ffi.open("out_graph.txt");
+    if(ffi.fail()) { cout << "File could not be opened" << endl; return 1;}
+    edges = readGraphFromFile(ffi);
+    ffi.close();
+    print(edges);
+
+    /*
+    Edge e1={1,4,5};
+    Edge e2={1,2,2};
+    Edge e3={2,1,2};
+    Edge e4={2,4,5};
+    Edge e5={2,5,4};
+    Edge e6={2,3,14};
+    Edge e7={3,2,14};
+    Edge e8={3,5,34};
+    Edge e9={4,1,5};
+    Edge e10={4,2,5};
+    Edge e11={4,5,58};
+    Edge e12={5,2,4};
+    Edge e13={5,3,34};
+    Edge e14={5,4,58};
+    list<Edge> lst1;
+    lst1.push_back(e1);
+    lst1.push_back(e2);
+
+    list<Edge> lst2;
+    lst2.push_back(e3);
+    lst2.push_back(e4);
+    lst2.push_back(e5);
+    lst2.push_back(e6);
+
+    list<Edge> lst3;
+    lst3.push_back(e7);
+    lst3.push_back(e8);
+
+    list<Edge> lst4;
+    lst4.push_back(e9);
+    lst4.push_back(e10);
+    lst4.push_back(e11);
+
+    list<Edge> lst5;
+    lst5.push_back(e12);;
+    lst5.push_back(e13);
+    lst5.push_back(e14);
+
+    adjacencyList blah;
+    blah.push_back(lst1);
+    blah.push_back(lst2);
+    blah.push_back(lst3);
+    blah.push_back(lst4);
+    blah.push_back(lst5);*/
+
+return 0;
+
+}
+
